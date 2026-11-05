@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Presupuesto semanal</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EEF3F1;--card:#fff;--ink:#14302A;--mut:#5E7770;--line:#D3DFDB;--ok:#1F7A5F;--bad:#C2412D;--acc:#14302A;--accink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1B18;--card:#172823;--ink:#E6F0EC;--mut:#8FA8A0;--line:#27403A;--ok:#4FC39C;--bad:#F07A66;--acc:#E6F0EC;--accink:#0F1B18;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F1B18;--card:#172823;--ink:#E6F0EC;--mut:#8FA8A0;--line:#27403A;--ok:#4FC39C;--bad:#F07A66;--acc:#E6F0EC;--accink:#0F1B18;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4}
+main{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 2px;font-weight:800}
+.sub{color:var(--mut);margin:0 0 16px;font-size:.95rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--mut);flex:1;min-width:130px}
+input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;width:100%}
+input:focus-visible,button:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px}
+button.p{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:600}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{flex:1;padding:8px 4px;text-align:center;font-size:.85rem;line-height:1.2}
+.tab b{display:block;font-size:.95rem}
+.tab.on{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+.tab.now:not(.on){border-color:var(--ok)}
+.big{font-size:2.6rem;font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.big.neg{color:var(--bad)}
+.lbl{color:var(--mut);font-size:.85rem}
+.bar{height:10px;background:var(--bg);border-radius:6px;overflow:hidden;margin:12px 0 8px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.over{background:var(--bad)}
+.stats{display:flex;justify-content:space-between;gap:8px;font-size:.9rem}
+.stats div{flex:1}
+.stats b{display:block;font-size:1.05rem}
+.note{font-size:.88rem;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg)}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+li .d{flex:1;min-width:0}
+li .d span{display:block;color:var(--mut);font-size:.8rem}
+li .m{font-weight:600}
+li button{padding:4px 9px;color:var(--mut)}
+.empty{color:var(--mut);margin:4px 0}
+.warn{color:var(--bad);font-size:.88rem;margin:8px 0 0}
+summary{cursor:pointer;font-weight:600}
+.sum{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:10px}
+.sum td,.sum th{padding:6px 4px;text-align:right;border-top:1px solid var(--line)}
+.sum th:first-child,.sum td:first-child{text-align:left}
+.sum th{color:var(--mut);font-weight:400}
+</style>
+</head>
+<body>
+<main>
+<h1>Presupuesto semanal</h1>
+<p class="sub" id="periodo"></p>
+
+<div id="semanas" class="tabs"></div>
+<div id="resumen" class="card"></div>
+
+<form id="f" class="card" onsubmit="return false">
+  <div class="row">
+    <label>Monto ($)<input id="monto" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+    <label>Fecha<input id="fecha" type="date"></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label style="flex:3">Detalle (opcional)<input id="det" type="text" maxlength="60" placeholder="Supermercado, nafta..."></label>
+    <button class="p" id="add" style="align-self:flex-end">Agregar gasto</button>
+  </div>
+  <p class="warn" id="err" hidden></p>
+</form>
+
+<div class="card"><b id="ltit">Gastos</b><ul id="lista"></ul></div>
+
+<div class="card">
+  <details>
+    <summary>Resumen del mes</summary>
+    <table class="sum" id="tabla"></table>
+  </details>
+</div>
+
+<div class="card">
+  <details id="cfg">
+    <summary>Configuración</summary>
+    <div class="row" style="margin-top:12px">
+      <label>Presupuesto por semana ($)<input id="base" type="number" inputmode="decimal" min="0" step="any"></label>
+      <label>Primer día del período<input id="inicio" type="date"></label>
+    </div>
+    <p class="lbl" id="cfgmsg" style="margin:8px 0 0">Elegí un lunes para que las semanas arranquen ese día.</p>
+    <div class="row" style="margin-top:12px">
+      <button id="nuevo">Empezar nuevo mes</button>
+    </div>
+  </details>
+</div>
+</main>
+
+<script>
+var KEY="presupuesto-semanal-v1", W=4, DAY=864e5;
+var S={base:76400,inicio:"2026-11-09",gastos:[],sel:null,confirmar:false};
+try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);if(o&&o.base!=null)S=Object.assign(S,o)}}catch(e){}
+S.confirmar=false;
+function save(){try{localStorage.setItem(KEY,JSON.stringify({base:S.base,inicio:S.inicio,gastos:S.gastos}))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function pd(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
+function iso(d){var m=d.getMonth()+1,dd=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(dd<10?"0":"")+dd}
+function addD(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
+function $$(n){return "$"+Math.round(n).toLocaleString("es-AR")}
+function fd(d){return d.toLocaleDateString("es-AR",{day:"numeric",month:"short"})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function hoy(){var n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate())}
+
+function weekOf(dateStr){
+  var i=Math.floor((pd(dateStr)-pd(S.inicio))/DAY/7);
+  return (i>=0&&i<W)?i:-1;
+}
+function calc(){
+  var st=pd(S.inicio),res=[],carry=0,t=hoy();
+  for(var i=0;i<W;i++){
+    var ini=addD(st,i*7),fin=addD(ini,6);
+    var gastado=0;S.gastos.forEach(function(g){if(weekOf(g.fecha)===i)gastado+=g.monto});
+    var disp=S.base+carry,rest=disp-gastado;
+    res.push({i:i,ini:ini,fin:fin,carry:carry,disp:disp,gastado:gastado,rest:rest,
+      actual:t>=ini&&t<=fin,cerrada:t>fin});
+    carry=rest;
+  }
+  return res;
+}
+function actualIdx(r){
+  var t=hoy(),st=pd(S.inicio);
+  if(t<st)return 0;
+  for(var i=0;i<W;i++)if(r[i].actual)return i;
+  return W-1;
+}
+function render(){
+  var r=calc();
+  if(S.sel==null||S.sel>=W)S.sel=actualIdx(r);
+  var w=r[S.sel];
+  $("periodo").textContent="Del "+fd(r[0].ini)+" al "+fd(r[W-1].fin)+" · "+$$(S.base)+" por semana";
+  $("periodo").textContent="Del "+fd(r[0].ini)+" al "+fd(r[W-1].fin)+", "+$$(S.base)+" por semana";
+
+  $("semanas").innerHTML=r.map(function(x){
+    return '<button class="tab'+(x.i===S.sel?' on':'')+(x.actual?' now':'')+'" data-w="'+x.i+'">Semana '+(x.i+1)+'<b>'+fd(x.ini)+'</b></button>';
+  }).join("");
+
+  var pct=w.disp>0?Math.min(100,Math.max(0,w.gastado/w.disp*100)):(w.gastado>0?100:0);
+  var over=w.rest<0;
+  var nota="";
+  if(w.i>0){
+    var c=w.carry;
+    nota=c>0?"Sobraron "+$$(c)+" de la semana anterior y se sumaron a esta."
+      :c<0?"Te pasaste "+$$(-c)+" la semana anterior y se restaron de esta."
+      :"La semana anterior cerró justo en cero.";
+    var prev=r[w.i-1];
+    if(!prev.cerrada)nota+=" Es una proyección: se confirma el lunes "+fd(w.ini)+".";
+  }
+  var diasRest=0;
+  if(w.actual)diasRest=Math.round((w.fin-hoy())/DAY)+1;
+  var porDia=(w.actual&&w.rest>0)?'<div class="note">Podés gastar unos '+$$(w.rest/diasRest)+' por día hasta el '+fd(w.fin)+'.</div>':'';
+  $("resumen").innerHTML=
+    '<div class="lbl">'+(over?'Te pasaste esta semana por':'Te queda para la semana del '+fd(w.ini)+' al '+fd(w.fin))+'</div>'+
+    '<div class="big'+(over?' neg':'')+'">'+$$(Math.abs(w.rest))+'</div>'+
+    '<div class="bar"><i class="'+(over?'over':'')+'" style="width:'+pct+'%"></i></div>'+
+    '<div class="stats"><div class="lbl">Disponible<b>'+$$(w.disp)+'</b></div><div class="lbl">Gastado<b>'+$$(w.gastado)+'</b></div><div class="lbl" style="text-align:right">Base<b>'+$$(S.base)+'</b></div></div>'+
+    (nota?'<div class="note">'+nota+'</div>':'')+porDia;
+
+  var lst=S.gastos.filter(function(g){return weekOf(g.fecha)===S.sel}).sort(function(a,b){return a.fecha<b.fecha?1:-1});
+  $("ltit").textContent="Gastos de la semana "+(S.sel+1);
+  $("lista").innerHTML=lst.length?lst.map(function(g){
+    return '<li><div class="d">'+esc(g.nota||"Sin detalle")+'<span>'+fd(pd(g.fecha))+'</span></div><div class="m">'+$$(g.monto)+'</div><button data-del="'+g.id+'" aria-label="Borrar gasto">Borrar</button></li>';
+  }).join(""):'<p class="empty">Todavía no cargaste gastos en esta semana.</p>';
+
+  var fuera=S.gastos.filter(function(g){return weekOf(g.fecha)<0}).length;
+  $("tabla").innerHTML='<tr><th>Semana</th><th>Disponible</th><th>Gastado</th><th>Resto</th></tr>'+r.map(function(x){
+    return '<tr><td>'+(x.i+1)+'</td><td>'+$$(x.disp)+'</td><td>'+$$(x.gastado)+'</td><td style="color:'+(x.rest<0?'var(--bad)':'var(--ok)')+'">'+$$(x.rest)+'</td></tr>';
+  }).join("")+(fuera?'<tr><td colspan="4" style="color:var(--bad)">'+fuera+' gasto(s) con fecha fuera del período no se cuentan.</td></tr>':'');
+
+  var inicioDia=pd(S.inicio).getDay();
+  $("cfgmsg").textContent=inicioDia===1?"El período arranca un lunes: el saldo se actualiza cada lunes.":"Ojo: esa fecha no es lunes. Las semanas se cuentan desde ese día.";
+  $("nuevo").textContent=S.confirmar?"Confirmar: borra todos los gastos":"Empezar nuevo mes";
+  $("nuevo").className=S.confirmar?"p":"";
+}
+
+$("semanas").addEventListener("click",function(e){var b=e.target.closest("[data-w]");if(b){S.sel=+b.dataset.w;render()}});
+$("lista").addEventListener("click",function(e){var b=e.target.closest("[data-del]");if(!b)return;
+  S.gastos=S.gastos.filter(function(g){return String(g.id)!==b.dataset.del});save();render()});
+$("add").addEventListener("click",function(){
+  var m=parseFloat($("monto").value),f=$("fecha").value,er=$("err");
+  er.hidden=true;
+  if(!(m>0)){er.textContent="Ingresá un monto mayor a cero.";er.hidden=false;return}
+  if(!f){er.textContent="Elegí la fecha del gasto.";er.hidden=false;return}
+  var wi=weekOf(f);
+  if(wi<0){er.textContent="Esa fecha está fuera del período ("+fd(pd(S.inicio))+" al "+fd(addD(pd(S.inicio),W*7-1))+").";er.hidden=false;return}
+  S.gastos.push({id:Date.now()+Math.random().toString(36).slice(2,6),fecha:f,monto:m,nota:$("det").value.trim()});
+  save();S.sel=wi;$("monto").value="";$("det").value="";render();$("monto").focus();
+});
+$("base").addEventListener("input",function(){var v=parseFloat(this.value);if(v>=0){S.base=v;save();render()}});
+$("inicio").addEventListener("change",function(){if(this.value){S.inicio=this.value;S.sel=null;save();render()}});
+$("nuevo").addEventListener("click",function(){
+  if(!S.confirmar){S.confirmar=true;render();return}
+  S.gastos=[];S.confirmar=false;save();render();
+});
+$("base").value=S.base;$("inicio").value=S.inicio;
+(function(){var t=hoy(),st=pd(S.inicio),en=addD(st,W*7-1);var d=(t<st)?st:(t>en?en:t);$("fecha").value=iso(d)})();
+render();
+</script>
+</body>
+</html>
