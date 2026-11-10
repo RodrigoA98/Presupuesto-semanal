@@ -71,7 +71,7 @@ summary{cursor:pointer;font-weight:600}
 
 <form id="f" class="card" onsubmit="return false">
   <div class="row">
-    <label>Monto ($)<input id="monto" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+    <label>Monto ($)<input id="monto" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></label>
     <label>Fecha<input id="fecha" type="date"></label>
   </div>
   <div class="row" style="margin-top:10px">
@@ -115,7 +115,14 @@ function $(i){return document.getElementById(i)}
 function pd(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
 function iso(d){var m=d.getMonth()+1,dd=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(dd<10?"0":"")+dd}
 function addD(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
-function $$(n){return "$"+Math.round(n).toLocaleString("es-AR")}
+function $$(n){var r=Math.round(n*100)/100;return "$"+r.toLocaleString("es-AR",Number.isInteger(r)?{maximumFractionDigits:0}:{minimumFractionDigits:2,maximumFractionDigits:2})}
+function parseMonto(s){var n=parseFloat(String(s).replace(/\./g,"").replace(",","."));return isNaN(n)?0:Math.round(n*100)/100}
+function fmtInput(s){
+  s=String(s).replace(/[^\d,]/g,"");
+  var i=s.indexOf(","),ent=i<0?s:s.slice(0,i),dec=i<0?null:s.slice(i+1).replace(/,/g,"").slice(0,2);
+  ent=ent.replace(/^0+(?=\d)/,"").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  return dec===null?ent:(ent||"0")+","+dec;
+}
 function fd(d){return d.toLocaleDateString("es-AR",{day:"numeric",month:"short"})}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function hoy(){var n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate())}
@@ -166,7 +173,7 @@ function render(){
   }
   var diasRest=0;
   if(w.actual)diasRest=Math.round((w.fin-hoy())/DAY)+1;
-  var porDia=(w.actual&&w.rest>0)?'<div class="note">Podés gastar unos '+$$(w.rest/diasRest)+' por día hasta el '+fd(w.fin)+'.</div>':'';
+  var porDia=(w.actual&&w.rest>0)?'<div class="note">Podés gastar unos '+$$(Math.round(w.rest/diasRest))+' por día hasta el '+fd(w.fin)+'.</div>':'';
   $("resumen").innerHTML=
     '<div class="lbl">'+(over?'Te pasaste esta semana por':'Te queda para la semana del '+fd(w.ini)+' al '+fd(w.fin))+'</div>'+
     '<div class="big'+(over?' neg':'')+'">'+$$(Math.abs(w.rest))+'</div>'+
@@ -195,7 +202,7 @@ $("semanas").addEventListener("click",function(e){var b=e.target.closest("[data-
 $("lista").addEventListener("click",function(e){var b=e.target.closest("[data-del]");if(!b)return;
   S.gastos=S.gastos.filter(function(g){return String(g.id)!==b.dataset.del});save();render()});
 $("add").addEventListener("click",function(){
-  var m=parseFloat($("monto").value),f=$("fecha").value,er=$("err");
+  var m=parseMonto($("monto").value),f=$("fecha").value,er=$("err");
   er.hidden=true;
   if(!(m>0)){er.textContent="Ingresá un monto mayor a cero.";er.hidden=false;return}
   if(!f){er.textContent="Elegí la fecha del gasto.";er.hidden=false;return}
@@ -204,6 +211,7 @@ $("add").addEventListener("click",function(){
   S.gastos.push({id:Date.now()+Math.random().toString(36).slice(2,6),fecha:f,monto:m,nota:$("det").value.trim()});
   save();S.sel=wi;$("monto").value="";$("det").value="";render();$("monto").focus();
 });
+$("monto").addEventListener("input",function(){this.value=fmtInput(this.value)});
 $("base").addEventListener("input",function(){var v=parseFloat(this.value);if(v>=0){S.base=v;save();render()}});
 $("inicio").addEventListener("change",function(){if(this.value){S.inicio=this.value;S.sel=null;save();render()}});
 $("nuevo").addEventListener("click",function(){
